@@ -1,74 +1,185 @@
-from typing import Callable, overload
+import time
+from functools import lru_cache, wraps
+from io import StringIO
+from math import sqrt
+from threading import current_thread, Thread, Lock
+from typing import Callable
 
 
 class Profiler:
-    _instances = {}
+    _instances: dict[str, "Profiler"] = {}
+    _lock = Lock()
+
+    @staticmethod
+    def _generate_full_path(name: str, parent: "Profiler"):
+        """
+        Format the full path given the current name the parent Profiler
+        :param name:
+        :param parent: should already be resolved
+        :return:
+        """
+        if parent == "__ROOT__":
+            parent = None
+        elif parent is None:
+            parent = _root_profiler
+        else:
+            parent = parent
+        if parent is None or parent == "__ROOT__":
+            full_path = f"{name}"
+        else:
+            full_path = f"{parent.full_path if parent is not None else ''}/{name}"
+        return parent, full_path
 
     def __init__(self, name: str = "", parent: "Profiler" = None):
         self._name = name
-        self._parent = parent
-        self._full_path = f"{self._parent.full_path if self._parent is not None else ''}/{self.name}"
-        self._children = []
+        self._parent, self._full_path = self._generate_full_path(name, parent)
+        del name, parent
+        if self._parent is not None:
+            self._parent._children.add(self)
+        self._children: set["Profiler"] = set()
 
-        if parent is not None:
-            self._parent._children.append(self)
+        self._elapsed_times = []
+        self._cached_statistics = {}
+
+        self._tics: dict[Thread, float] = {}
 
     def __new__(cls, name: str = "", parent: "Profiler" = None):
-        raise NotImplementedError()
+        parent, full_path = Profiler._generate_full_path(name, parent)
+        if full_path not in Profiler._instances:
+            Profiler._instances[full_path] = super(Profiler, cls).__new__(cls)
+        return Profiler._instances[full_path]
 
     def __enter__(self):
-        raise NotImplementedError()
+        self.tic()
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        raise NotImplementedError()
+        self.toc()
 
-    def __call__(self, func: Callable) -> Callable:
-        pass
+    def __call__(self, func: Callable):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            with self:
+                ret = func(*args, **kwargs)
+            return ret
+
+        return wrapper
 
     def tic(self):
-        raise NotImplementedError()
+        """
+        Record the current perf_counter
+        :return:
+        """
+        with self._lock:
+            self._tics[current_thread()] = time.perf_counter()
 
     def toc(self):
-        raise NotImplementedError()
+        """
+        Record the difference between the most recent tic and clean the tic
+        :return:
+        """
+        with self._lock:
+            self._elapsed_times.append(time.perf_counter() - self._tics[current_thread()])
+            self._cached_statistics = {}
+            del self._tics[current_thread()]
 
     @property
-    def name(self):
+    def sorted_times(self) -> list[float]:
+        if "sorted_elapsed_times" not in self._cached_statistics:
+            self._cached_statistics['sorted_elapsed_times'] = sorted(self._elapsed_times)
+        return self._cached_statistics['sorted_elapsed_times']
+
+    @property
+    def times(self) -> list[float]:
+        return self._elapsed_times
+
+    @property
+    def name(self) -> str:
         return self._name
 
     @property
-    def full_path(self):
+    def full_path(self) -> str:
         return self._full_path
 
-    def type(self) -> str:
-        raise NotImplementedError()
-
+    @property
     def count(self) -> int:
-        raise NotImplementedError()
-
-    def total(self) -> float:
-        raise NotImplementedError()
-
-    def tail(self, percentile: float) -> float:
-        raise NotImplementedError()
-
-    def average(self) -> float:
-        raise NotImplementedError()
-
-    def standard_deviation(self) -> float:
-        raise NotImplementedError()
-
-    def min(self) -> float:
-        raise NotImplementedError()
-
-    def max(self) -> float:
-        raise NotImplementedError()
+        """
+        Get the number of tic-toc-pairs
+        :return:
+        """
+        return len(self.times)
 
     @property
-    def report(self) -> str:
-        raise NotImplementedError()
+    def total(self) -> float:
+        """
+        Get the total time of all tic-toc-pairs
+        :return:
+        """
+        if self.count == 0:
+            return 0
+        if "total" not in self._cached_statistics:
+            self._cached_statistics['total'] = sum(self.times)
+        return self._cached_statistics['total']
+
+    def tail(self, percentile: float) -> float:
+        if self.count == 0:
+            return 0
+        idx = int(percentile * 0.01 * self.count)
+        return self.sorted_times[idx]
+
+    @property
+    def average(self) -> float:
+        if self.count == 0:
+            return 0
+        if "average" not in self._cached_statistics:
+            self._cached_statistics['average'] = sum(self.times) / self.count
+        return self._cached_statistics['average']
+
+    @property
+    def standard_deviation(self) -> float:
+        if self.count == 0:
+            return 0
+        if "std" not in self._cached_statistics:
+            self._cached_statistics['std'] = sqrt(sum([(_ - self.average) ** 2 for _ in self.times]) / self.count)
+        return self._cached_statistics['std']
+
+    @property
+    def min_time(self) -> float:
+        if self.count == 0:
+            return 0
+        return self.sorted_times[0]
+
+    @property
+    def max_time(self) -> float:
+        if self.count == 0:
+            return 0
+        return self.sorted_times[-1]
+
+    def report(self, full_path_width=None) -> str:
+        if full_path_width is not None:
+            full_path_width = full_path_width
+        else:
+            full_path_width = self._max_children_full_path_length()
+        with StringIO() as ret:
+            print(
+                f"|{self.full_path:<{full_path_width}}"
+                f"|{self.count:8}"
+                f"|{self.total:4.3f}s"
+                f"|{self.average:4.3f}(±{self.standard_deviation:4.3f})s"
+                f"|{self.min_time:4.3f}-{self.max_time:4.3f}"
+                f"|",
+                file=ret,
+            )
+            for child in sorted(self._children, key=lambda _: _.name):
+                print(child.report(full_path_width=self._max_children_full_path_length()), file=ret, end="")
+            return ret.getvalue()
+
+    @lru_cache
+    def _max_children_full_path_length(self):
+        return max([len(self.full_path)] + [child._max_children_full_path_length() for child in self._children])
 
     def __str__(self):
-        return self.report
+        return self.report()
 
     def __eq__(self, other):
         if not isinstance(other, Profiler):
@@ -77,18 +188,7 @@ class Profiler:
             return self.full_path == other.full_path
 
     def __hash__(self):
-        return self.full_path
-
-
-_root_profiler = Profiler()
-
-
-def profile(name: str) -> Profiler:
-    raise NotImplementedError()
-
-
-def report() -> str:
-    return _root_profiler.report
+        return hash(self.full_path)
 
 
 def clean():
@@ -97,8 +197,18 @@ def clean():
     :return:
     """
     global _root_profiler
-    _root_profiler = Profiler()
     Profiler._instances = {}
+    Profiler._active_instances = {}
+    # noinspection PyTypeChecker
+    _root_profiler = Profiler("", "__ROOT__")
 
 
-__all__ = ["Profiler", "clean", "profile", "report"]
+def report() -> str:
+    return _root_profiler.report()
+
+
+# noinspection PyTypeChecker
+_root_profiler: Profiler = None
+clean()
+
+__all__ = ["Profiler", "clean", "report"]

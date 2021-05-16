@@ -1,1 +1,1 @@
-from .test import *
+from .test_profiler import *
