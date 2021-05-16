@@ -11,6 +11,10 @@ class Profiler:
     _lock = Lock()
 
     @staticmethod
+    def get(full_path: str) -> "Profiler":
+        return Profiler._instances[full_path]
+
+    @staticmethod
     def _generate_full_path(name: str, parent: "Profiler"):
         """
         Format the full path given the current name the parent Profiler
@@ -31,6 +35,9 @@ class Profiler:
         return parent, full_path
 
     def __init__(self, name: str = "", parent: "Profiler" = None):
+        if hasattr(self, "_initialized"):
+            return
+        self._initialized = True
         self._name = name
         self._parent, self._full_path = self._generate_full_path(name, parent)
         del name, parent
