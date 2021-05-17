@@ -41,7 +41,7 @@ def test_profile_proxy_decorator():
 
     g()
     p1 = Profiler("p1")
-    p2 = Profiler("f", p1)
+    p2 = Profiler("test_profile_proxy_decorator.<locals>.f", p1)
     assert _root_profiler._children == {p1}
     assert p1.count == 1
     assert p2.count == len(times)
