@@ -171,9 +171,9 @@ class Profiler:
             print(
                 f"|{self.full_path:<{full_path_width}}"
                 f"|{self.count:8}"
-                f"|{self.total:4.3f}s"
-                f"|{self.average:4.3f}(±{self.standard_deviation:4.3f})s"
-                f"|{self.min_time:4.3f}-{self.max_time:4.3f}"
+                f"|{self.total:10.3f}s"
+                f"|{self.average:10.3f}(±{self.standard_deviation:10.3f})s"
+                f"|{self.min_time:10.3f}~{self.max_time:10.3f}"
                 f"|",
                 file=ret,
             )
