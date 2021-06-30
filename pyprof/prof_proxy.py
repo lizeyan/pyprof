@@ -28,7 +28,7 @@ class ProfilerProxy:
         _, profiler = self.active_proxy[current_thread()].pop()
         profiler.__exit__(exc_type, exc_val, exc_tb)
         if self.report_printer is not None:
-            self.report_printer(profiler.report())
+            self.report_printer(profiler.report_header() + profiler.report())
 
     def __call__(self, func: Callable):
         @wraps(func)

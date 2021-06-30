@@ -205,11 +205,8 @@ class Profiler:
                 print(child.report(full_path_width=self._max_children_full_path_length()), file=ret, end="")
             return ret.getvalue()
 
-    def report_header(self, full_path_width=None) -> str:
-        if full_path_width is not None:
-            full_path_width = full_path_width
-        else:
-            full_path_width = self._max_children_full_path_length()
+    def report_header(self) -> str:
+        full_path_width = self._max_children_full_path_length()
         with StringIO() as ret:
             print(
                 f"|{'path':<{full_path_width}}"
