@@ -10,6 +10,8 @@ exclude_lines =
     raise NotImplementedError
     if 0:
     if __name__ == .__main__.:
+    def profile(func: Callable) -> Callable:
+    def profile(name: str, report_printer=None) -> Callable:
 ignore_errors = True
 omit =
     tests/
