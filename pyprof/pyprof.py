@@ -73,6 +73,7 @@ class Profiler:
     def _destroy(self):
         del Profiler._instances[self._full_path]
         for _ in self._children:
+            # noinspection PyProtectedMember
             _._destroy()
         self._children = set()
 
@@ -107,15 +108,15 @@ class Profiler:
             self._tics[current_thread()] = time.perf_counter()
 
     @staticmethod
-    def __fill_parent_times_if_not_triggered(profiler: 'Profiler', time: float):
+    def __fill_parent_times_if_not_triggered(profiler: 'Profiler', elapsed_time: float):
         """
         In case that parent Profiler is not triggered while the children Profiler are
         """
         if profiler is None:
             return
-        profiler._elapsed_times.append(time)
+        profiler._elapsed_times.append(elapsed_time)
         profiler._cached_statistics = {}
-        Profiler.__fill_parent_times_if_not_triggered(profiler._parent, time)
+        Profiler.__fill_parent_times_if_not_triggered(profiler._parent, elapsed_time)
 
     def toc(self):
         """

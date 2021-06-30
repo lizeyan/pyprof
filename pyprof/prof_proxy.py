@@ -1,4 +1,3 @@
-import warnings
 from collections import defaultdict
 from functools import wraps
 from threading import Thread, current_thread

@@ -1,9 +1,9 @@
 from pyprof import profile, Profiler, clean
 
 
+# noinspection PyProtectedMember
 def test_flush():
     clean()
-    from pyprof.pyprof import _root_profiler
 
     @profile('p1')
     def f():

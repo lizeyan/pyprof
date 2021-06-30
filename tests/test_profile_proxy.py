@@ -4,6 +4,7 @@ import numpy as np
 from .test_utils import close
 
 
+# noinspection PyProtectedMember
 def test_profile_proxy():
     clean()
     from pyprof.pyprof import _root_profiler
@@ -26,6 +27,7 @@ def test_profile_proxy():
     print(report())
 
 
+# noinspection PyProtectedMember
 def test_profile_proxy_decorator():
     times = np.abs(np.random.normal(0.1, 0.01, 10))
 
