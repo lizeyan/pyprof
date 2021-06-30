@@ -35,23 +35,48 @@ class Profiler:
             full_path = f"{parent.full_path if parent is not None else ''}/{name}"
         return parent, full_path
 
-    def __init__(self, name: str = "", parent: "Profiler" = None):
-        if hasattr(self, "_initialized"):
-            return
-        self._initialized = True
+    def _need_init(self, flush=False):
+        """
+        1. _initialized is not set
+        2. flush=True
+        3. _initialized before any parent
+        :param flush:
+        :return:
+        """
+        if not hasattr(self, '_initialized') or flush:
+            return True
+
+    def __init__(self, name: str = "", parent: "Profiler" = None, flush=False):
         self._name = name
         self._parent, self._full_path = self._generate_full_path(name, parent)
         del name, parent
+
+        # skip init if necessary
+        if not self._need_init(flush=flush):
+            return
+
         if self._parent is not None:
             self._parent._children.add(self)
+
+        # destroy existing children if any
+        if hasattr(self, '_children'):
+            for _ in self._children:
+                _._destroy()
         self._children: set["Profiler"] = set()
 
         self._elapsed_times = []
         self._cached_statistics = {}
 
         self._tics: dict[Thread, float] = {}
+        self._initialized = time.perf_counter()
 
-    def __new__(cls, name: str = "", parent: "Profiler" = None):
+    def _destroy(self):
+        del Profiler._instances[self._full_path]
+        for _ in self._children:
+            _._destroy()
+        self._children = set()
+
+    def __new__(cls, name: str = "", parent: "Profiler" = None, flush=False):
         parent, full_path = Profiler._generate_full_path(name, parent)
         if full_path not in Profiler._instances:
             Profiler._instances[full_path] = super(Profiler, cls).__new__(cls)
