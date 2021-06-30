@@ -1,4 +1,5 @@
 import time
+import warnings
 from functools import lru_cache, wraps
 from io import StringIO
 from math import sqrt
@@ -80,13 +81,29 @@ class Profiler:
         with self._lock:
             self._tics[current_thread()] = time.perf_counter()
 
+    @staticmethod
+    def __fill_parent_times_if_not_triggered(profiler: 'Profiler', time: float):
+        """
+        In case that parent Profiler is not triggered while the children Profiler are
+        """
+        if profiler is None:
+            return
+        profiler._elapsed_times.append(time)
+        profiler._cached_statistics = {}
+        Profiler.__fill_parent_times_if_not_triggered(profiler._parent, time)
+
     def toc(self):
         """
         Record the difference between the most recent tic and clean the tic
         :return:
         """
         with self._lock:
+            if current_thread() not in self._tics:
+                warnings.warn("Unmatched toc")
+                return
             self._elapsed_times.append(time.perf_counter() - self._tics[current_thread()])
+            if self._parent is not None and not self._parent._tics:  # parent Profiler is not in tic
+                self.__fill_parent_times_if_not_triggered(self._parent, self._elapsed_times[-1])
             self._cached_statistics = {}
             del self._tics[current_thread()]
 
@@ -167,9 +184,16 @@ class Profiler:
             full_path_width = full_path_width
         else:
             full_path_width = self._max_children_full_path_length()
+        total_percent = self.total / max(_root_profiler.total, 1e-4) * 100
+        if self._parent is not None:
+            parent_percent = self.total / max(self._parent.total, 1e-4) * 100
+        else:
+            parent_percent = total_percent
         with StringIO() as ret:
             print(
                 f"|{self.full_path:<{full_path_width}}"
+                f"|{total_percent:10.2f}%"
+                f"|{parent_percent:10.2f}%"
                 f"|{self.count:8}"
                 f"|{self.total:10.3f}s"
                 f"|{self.average:10.3f}(±{self.standard_deviation:10.3f})s"
@@ -179,6 +203,25 @@ class Profiler:
             )
             for child in sorted(self._children, key=lambda _: _.name):
                 print(child.report(full_path_width=self._max_children_full_path_length()), file=ret, end="")
+            return ret.getvalue()
+
+    def report_header(self, full_path_width=None) -> str:
+        if full_path_width is not None:
+            full_path_width = full_path_width
+        else:
+            full_path_width = self._max_children_full_path_length()
+        with StringIO() as ret:
+            print(
+                f"|{'path':<{full_path_width}}"
+                f"|{'%total':11}"
+                f"|{'%parent':11}"
+                f"|{'count':<8}"
+                f"|{'total':11}"
+                f"|{'mean(±std)':<24}"
+                f"|{'min-max':<21}"
+                f"|",
+                file=ret,
+            )
             return ret.getvalue()
 
     @lru_cache
@@ -211,7 +254,7 @@ def clean():
 
 
 def report() -> str:
-    return _root_profiler.report()
+    return f'{_root_profiler.report_header()}{_root_profiler.report()}'
 
 
 # noinspection PyTypeChecker

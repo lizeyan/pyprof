@@ -52,8 +52,10 @@ def test_snippet_context_manager():
 
     assert p2._max_children_full_path_length() == 9
     rpt = report()
-    assert len(rpt.splitlines()) == 5
-    assert str(_root_profiler) == rpt
+    print()
+    print(rpt)
+    assert len(rpt.splitlines()) == 5 + 1
+    assert str(_root_profiler) == '\n'.join(rpt.splitlines()[1:]) + '\n'
 
 
 def test_multi_thread_profiler():
@@ -92,5 +94,7 @@ def test_multi_thread_profiler():
 
     assert p2._max_children_full_path_length() == 9
     rpt = report()
-    assert len(rpt.splitlines()) == 5
-    assert str(_root_profiler) == rpt
+    print()
+    print(rpt)
+    assert len(rpt.splitlines()) == 5 + 1
+    assert str(_root_profiler) == '\n'.join(rpt.splitlines()[1:]) + '\n'

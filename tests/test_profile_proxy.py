@@ -1,4 +1,4 @@
-from pyprof import profile, clean, Profiler
+from pyprof import profile, clean, Profiler, report
 import time
 import numpy as np
 from .test_utils import close
@@ -22,6 +22,8 @@ def test_profile_proxy():
     assert p2.count == len(times)
     assert close(p2.average, np.mean(times).item())
     assert close(p1.total, 0.5 + sum(times))
+    print()
+    print(report())
 
 
 def test_profile_proxy_decorator():
@@ -47,3 +49,5 @@ def test_profile_proxy_decorator():
     assert p2.count == len(times)
     assert close(p2.average, np.mean(times).item())
     assert close(p1.total, 0.5 + sum(times))
+    print()
+    print(report())
