@@ -105,6 +105,7 @@ Output
 ```
 
 # Roadmap
+- [ ] Measure and control the overhead of `pyprof`
 - [ ] Automatically decide column width for more columns in `report`
 - [ ] Support capture parent profiler in a multi-thread context
 - [ ] Support multi-process (currently Profilers in subprocesses are all detached)
