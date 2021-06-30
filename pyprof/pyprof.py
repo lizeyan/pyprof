@@ -227,7 +227,7 @@ class Profiler:
                 file=ret,
             )
             for child in sorted(self._children, key=lambda _: _.name):
-                print(child.report(full_path_width=self._max_children_full_path_length()), file=ret, end="")
+                print(child.report(full_path_width=full_path_width), file=ret, end="")
             return ret.getvalue()
 
     def report_header(self) -> str:
