@@ -4,11 +4,11 @@ from functools import lru_cache, wraps
 from io import StringIO
 from math import sqrt
 from threading import current_thread, Thread, Lock
-from typing import Callable
+from typing import Callable, Dict, Set, List
 
 
 class Profiler:
-    _instances: dict[str, "Profiler"] = {}
+    _instances: Dict[str, "Profiler"] = {}
     _lock = Lock()
 
     @staticmethod
@@ -62,12 +62,12 @@ class Profiler:
         if hasattr(self, '_children'):
             for _ in self._children:
                 _._destroy()
-        self._children: set["Profiler"] = set()
+        self._children: Set["Profiler"] = set()
 
         self._elapsed_times = []
         self._cached_statistics = {}
 
-        self._tics: dict[Thread, float] = {}
+        self._tics: Dict[Thread, float] = {}
         self._initialized = time.perf_counter()
 
     def _destroy(self):
@@ -134,13 +134,13 @@ class Profiler:
             del self._tics[current_thread()]
 
     @property
-    def sorted_times(self) -> list[float]:
+    def sorted_times(self) -> List[float]:
         if "sorted_elapsed_times" not in self._cached_statistics:
             self._cached_statistics['sorted_elapsed_times'] = sorted(self._elapsed_times)
         return self._cached_statistics['sorted_elapsed_times']
 
     @property
-    def times(self) -> list[float]:
+    def times(self) -> List[float]:
         return self._elapsed_times
 
     @property

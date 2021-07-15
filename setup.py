@@ -63,5 +63,5 @@ setup(
     license='MIT',
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
-    python_requires='>=3.9',
+    python_requires='>=3.7',
 )

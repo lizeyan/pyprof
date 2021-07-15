@@ -1,13 +1,13 @@
 from collections import defaultdict
 from functools import wraps
 from threading import Thread, current_thread
-from typing import overload, Callable, Any, Union
+from typing import overload, Callable, Any, Union, Dict, List, Tuple
 
 from .pyprof import Profiler
 
 
 class ProfilerProxy:
-    active_proxy: dict[Thread, list[tuple["ProfilerProxy", "Profiler"]]] = defaultdict(list)
+    active_proxy: Dict[Thread, List[Tuple["ProfilerProxy", "Profiler"]]] = defaultdict(list)
 
     def __init__(self, name: str, report_printer: Callable[[str], Any] = None, flush=False):
         self.name = name
