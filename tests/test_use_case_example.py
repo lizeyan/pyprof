@@ -57,6 +57,8 @@ def test_main():
 
     # print a formatted time usage report
     print(report())
+    # filter components
+    print(report(min_total_percent=0.1, min_parent_percent=0.5))
 
     # `profile` automatically print report if `report_printer` is given
     with profile('auto-print', report_printer=print):
@@ -69,3 +71,7 @@ def test_main():
     with profile('auto-print', report_printer=print, flush=True):
         f()
     assert Profiler.get("/auto-print").count == 1
+
+
+if __name__ == '__main__':
+    test_main()

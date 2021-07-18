@@ -1,4 +1,5 @@
 # PyProf
+[![PyPI version](https://badge.fury.io/py/pyprof.svg)](https://badge.fury.io/py/pyprof)
 ![Build Status](https://github.com/lizeyan/pyprof/actions/workflows/pythonpackage.yml/badge.svg)
 ![Coverage](https://coveralls.io/repos/github/lizeyan/pyprof/badge.svg?branch=dev&t=VBgxyx)
 
@@ -105,6 +106,7 @@ Output
 ```
 
 # Roadmap
+- [ ] Measure and control the overhead of `pyprof`
 - [ ] Automatically decide column width for more columns in `report`
 - [ ] Support capture parent profiler in a multi-thread context
 - [ ] Support multi-process (currently Profilers in subprocesses are all detached)

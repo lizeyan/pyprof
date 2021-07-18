@@ -4,11 +4,11 @@ from functools import lru_cache, wraps
 from io import StringIO
 from math import sqrt
 from threading import current_thread, Thread, Lock
-from typing import Callable
+from typing import Callable, Dict, Set, List
 
 
 class Profiler:
-    _instances: dict[str, "Profiler"] = {}
+    _instances: Dict[str, "Profiler"] = {}
     _lock = Lock()
 
     @staticmethod
@@ -62,17 +62,18 @@ class Profiler:
         if hasattr(self, '_children'):
             for _ in self._children:
                 _._destroy()
-        self._children: set["Profiler"] = set()
+        self._children: Set["Profiler"] = set()
 
         self._elapsed_times = []
         self._cached_statistics = {}
 
-        self._tics: dict[Thread, float] = {}
+        self._tics: Dict[Thread, float] = {}
         self._initialized = time.perf_counter()
 
     def _destroy(self):
         del Profiler._instances[self._full_path]
         for _ in self._children:
+            # noinspection PyProtectedMember
             _._destroy()
         self._children = set()
 
@@ -107,15 +108,15 @@ class Profiler:
             self._tics[current_thread()] = time.perf_counter()
 
     @staticmethod
-    def __fill_parent_times_if_not_triggered(profiler: 'Profiler', time: float):
+    def __fill_parent_times_if_not_triggered(profiler: 'Profiler', elapsed_time: float):
         """
         In case that parent Profiler is not triggered while the children Profiler are
         """
         if profiler is None:
             return
-        profiler._elapsed_times.append(time)
+        profiler._elapsed_times.append(elapsed_time)
         profiler._cached_statistics = {}
-        Profiler.__fill_parent_times_if_not_triggered(profiler._parent, time)
+        Profiler.__fill_parent_times_if_not_triggered(profiler._parent, elapsed_time)
 
     def toc(self):
         """
@@ -133,13 +134,13 @@ class Profiler:
             del self._tics[current_thread()]
 
     @property
-    def sorted_times(self) -> list[float]:
+    def sorted_times(self) -> List[float]:
         if "sorted_elapsed_times" not in self._cached_statistics:
             self._cached_statistics['sorted_elapsed_times'] = sorted(self._elapsed_times)
         return self._cached_statistics['sorted_elapsed_times']
 
     @property
-    def times(self) -> list[float]:
+    def times(self) -> List[float]:
         return self._elapsed_times
 
     @property
@@ -204,7 +205,7 @@ class Profiler:
             return 0
         return self.sorted_times[-1]
 
-    def report(self, full_path_width=None) -> str:
+    def report(self, full_path_width=None, min_total_percent: float = 0, min_parent_percent: float = 0) -> str:
         if full_path_width is not None:
             full_path_width = full_path_width
         else:
@@ -215,19 +216,24 @@ class Profiler:
         else:
             parent_percent = total_percent
         with StringIO() as ret:
-            print(
-                f"|{self.full_path:<{full_path_width}}"
-                f"|{total_percent:10.2f}%"
-                f"|{parent_percent:10.2f}%"
-                f"|{self.count:8}"
-                f"|{self.total:10.3f}s"
-                f"|{self.average:10.3f}(±{self.standard_deviation:10.3f})s"
-                f"|{self.min_time:10.3f}~{self.max_time:10.3f}"
-                f"|",
-                file=ret,
-            )
+            if total_percent >= min_total_percent * 100 and parent_percent >= min_parent_percent * 100:
+                print(
+                    f"|{self.full_path:<{full_path_width}}"
+                    f"|{total_percent:10.2f}%"
+                    f"|{parent_percent:10.2f}%"
+                    f"|{self.count:8}"
+                    f"|{self.total:10.3f}s"
+                    f"|{self.average:10.3f}(±{self.standard_deviation:10.3f})s"
+                    f"|{self.min_time:10.3f}~{self.max_time:10.3f}"
+                    f"|",
+                    file=ret,
+                )
             for child in sorted(self._children, key=lambda _: _.name):
-                print(child.report(full_path_width=full_path_width), file=ret, end="")
+                print(child.report(
+                    full_path_width=full_path_width,
+                    min_total_percent=min_total_percent,
+                    min_parent_percent=min_parent_percent,
+                ), file=ret, end="")
             return ret.getvalue()
 
     def report_header(self) -> str:
@@ -246,7 +252,7 @@ class Profiler:
             )
             return ret.getvalue()
 
-    @lru_cache
+    @lru_cache(maxsize=None)
     def _max_children_full_path_length(self):
         return max([len(self.full_path)] + [child._max_children_full_path_length() for child in self._children])
 
@@ -275,12 +281,13 @@ def clean():
     _root_profiler = Profiler("", "__ROOT__")
 
 
-def report() -> str:
-    return f'{_root_profiler.report_header()}{_root_profiler.report()}'
+def report(min_total_percent: float = 0., min_parent_percent: float = 0.) -> str:
+    body = _root_profiler.report(min_total_percent=min_total_percent, min_parent_percent=min_parent_percent)
+    return f'{_root_profiler.report_header()}{body}'
 
 
 # noinspection PyTypeChecker
-_root_profiler: Profiler = None
+_root_profiler = None  # type: Profiler
 clean()
 
 __all__ = ["Profiler", "clean", "report"]

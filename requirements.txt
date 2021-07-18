@@ -1,3 +1,0 @@
-numpy~=1.19.5
-pyprof~=0.0.0
-setuptools~=49.2.1

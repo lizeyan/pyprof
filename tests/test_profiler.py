@@ -33,7 +33,8 @@ def test_snippet_context_manager():
     times = np.abs(np.random.normal(0.1, 0.01, 10))
     with p3:
         for t in times:
-            if (_ := random.random()) <= 0.3:
+            _ = random.random()
+            if _ <= 0.3:
                 p4.tic()
                 time.sleep(t)
                 p4.toc()
