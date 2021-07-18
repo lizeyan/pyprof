@@ -9,10 +9,15 @@ from .pyprof import Profiler
 class ProfilerProxy:
     active_proxy: Dict[Thread, List[Tuple["ProfilerProxy", "Profiler"]]] = defaultdict(list)
 
-    def __init__(self, name: str, report_printer: Callable[[str], Any] = None, flush=False):
+    def __init__(
+            self, name: str, report_printer: Callable[[str], Any] = None, flush=False,
+            min_total_percent: float = 0., min_parent_percent: float = 0.
+    ):
         self.name = name
         self.report_printer = report_printer
         self.flush = flush
+        self.min_total_percent = min_total_percent
+        self.min_parent_percent = min_parent_percent
 
     def __enter__(self):
         current_stack = self.active_proxy[current_thread()]
@@ -30,7 +35,12 @@ class ProfilerProxy:
         _, profiler = self.active_proxy[current_thread()].pop()
         profiler.__exit__(exc_type, exc_val, exc_tb)
         if self.report_printer is not None:
-            self.report_printer(profiler.report_header() + profiler.report())
+            self.report_printer(
+                profiler.report_header() + profiler.report(
+                    min_total_percent=self.min_total_percent,
+                    min_parent_percent=self.min_parent_percent,
+                )
+            )
 
     def __call__(self, func: Callable):
         @wraps(func)
@@ -42,7 +52,11 @@ class ProfilerProxy:
 
 
 @overload
-def profile(name: str, report_printer=None, flush: bool = False) -> Callable:
+def profile(
+        name: str, *, report_printer=None, flush: bool = False,
+        min_total_percent: float = 0.,
+        min_parent_percent: float = 0.,
+) -> Callable:
     ...
 
 
@@ -51,10 +65,19 @@ def profile(func: Callable) -> Callable:
     ...
 
 
-def profile(arg: Union[str, Callable], *, report_printer=None, flush: bool = False) -> Callable:
+def profile(
+        arg: Union[str, Callable], *, report_printer=None,
+        flush: bool = False,
+        min_total_percent: float = 0.,
+        min_parent_percent: float = 0.,
+) -> Callable:
     # work as a context manager
     if isinstance(arg, str):
-        return ProfilerProxy(arg, report_printer=report_printer, flush=flush)
+        return ProfilerProxy(
+            arg, report_printer=report_printer, flush=flush,
+            min_total_percent=min_total_percent,
+            min_parent_percent=min_parent_percent,
+        )
 
     func = arg
 

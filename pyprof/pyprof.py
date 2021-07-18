@@ -205,7 +205,7 @@ class Profiler:
             return 0
         return self.sorted_times[-1]
 
-    def report(self, full_path_width=None) -> str:
+    def report(self, full_path_width=None, min_total_percent: float = 0, min_parent_percent: float = 0) -> str:
         if full_path_width is not None:
             full_path_width = full_path_width
         else:
@@ -216,19 +216,24 @@ class Profiler:
         else:
             parent_percent = total_percent
         with StringIO() as ret:
-            print(
-                f"|{self.full_path:<{full_path_width}}"
-                f"|{total_percent:10.2f}%"
-                f"|{parent_percent:10.2f}%"
-                f"|{self.count:8}"
-                f"|{self.total:10.3f}s"
-                f"|{self.average:10.3f}(±{self.standard_deviation:10.3f})s"
-                f"|{self.min_time:10.3f}~{self.max_time:10.3f}"
-                f"|",
-                file=ret,
-            )
+            if total_percent >= min_total_percent * 100 and parent_percent >= min_parent_percent * 100:
+                print(
+                    f"|{self.full_path:<{full_path_width}}"
+                    f"|{total_percent:10.2f}%"
+                    f"|{parent_percent:10.2f}%"
+                    f"|{self.count:8}"
+                    f"|{self.total:10.3f}s"
+                    f"|{self.average:10.3f}(±{self.standard_deviation:10.3f})s"
+                    f"|{self.min_time:10.3f}~{self.max_time:10.3f}"
+                    f"|",
+                    file=ret,
+                )
             for child in sorted(self._children, key=lambda _: _.name):
-                print(child.report(full_path_width=full_path_width), file=ret, end="")
+                print(child.report(
+                    full_path_width=full_path_width,
+                    min_total_percent=min_total_percent,
+                    min_parent_percent=min_parent_percent,
+                ), file=ret, end="")
             return ret.getvalue()
 
     def report_header(self) -> str:
@@ -247,7 +252,7 @@ class Profiler:
             )
             return ret.getvalue()
 
-    @lru_cache
+    @lru_cache(maxsize=None)
     def _max_children_full_path_length(self):
         return max([len(self.full_path)] + [child._max_children_full_path_length() for child in self._children])
 
@@ -276,12 +281,13 @@ def clean():
     _root_profiler = Profiler("", "__ROOT__")
 
 
-def report() -> str:
-    return f'{_root_profiler.report_header()}{_root_profiler.report()}'
+def report(min_total_percent: float = 0., min_parent_percent: float = 0.) -> str:
+    body = _root_profiler.report(min_total_percent=min_total_percent, min_parent_percent=min_parent_percent)
+    return f'{_root_profiler.report_header()}{body}'
 
 
 # noinspection PyTypeChecker
-_root_profiler: Profiler = None
+_root_profiler = None  # type: Profiler
 clean()
 
 __all__ = ["Profiler", "clean", "report"]
