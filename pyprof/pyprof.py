@@ -13,6 +13,11 @@ class Profiler:
 
     @staticmethod
     def get(full_path: str) -> "Profiler":
+        """
+        Get a Profiler by its full path
+        :param full_path:
+        :return:
+        """
         return Profiler._instances[full_path]
 
     @staticmethod
@@ -47,6 +52,12 @@ class Profiler:
             return True
 
     def __init__(self, name: str = "", parent: "Profiler" = None, flush=False):
+        """
+        If the Profiler is inited before, then the __init__ will be skipped
+        :param name:
+        :param parent:
+        :param flush:
+        """
         self._name = name
         self._parent, self._full_path = self._generate_full_path(name, parent)
         del name, parent

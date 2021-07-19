@@ -3,7 +3,14 @@
 ![Build Status](https://github.com/lizeyan/pyprof/actions/workflows/pythonpackage.yml/badge.svg)
 ![Coverage](https://coveralls.io/repos/github/lizeyan/pyprof/badge.svg?branch=dev&t=VBgxyx)
 
-# Example
+A pure python time profiler
+
+## Installation
+```bash
+pip install pyprof
+```
+
+## Example
 ``` python
 from pyprof import profile, Profiler, report
 import time
@@ -61,6 +68,8 @@ def test_main():
 
     # print a formatted time usage report
     print(report())
+    # filter components
+    print(report(min_total_percent=0.1, min_parent_percent=0.5))
 
     # `profile` automatically print report if `report_printer` is given
     with profile('auto-print', report_printer=print):
@@ -74,6 +83,9 @@ def test_main():
         f()
     assert Profiler.get("/auto-print").count == 1
 
+
+if __name__ == '__main__':
+    test_main()
 ```
 
 Output
@@ -105,8 +117,40 @@ Output
 
 ```
 
-# Roadmap
-- [ ] Measure and control the overhead of `pyprof`
+
+## Overhead
+
+The average overhead is less than 0.1ms.
+
+```python3
+import time
+
+from pyprof import profile, Profiler
+
+real_time = 0.
+
+
+@profile
+def f():
+    tic = time.perf_counter()
+    time.sleep(1e-2)
+    global real_time
+    real_time += time.perf_counter() - tic
+
+
+def test_overhead():
+    n_times = 100
+    for i in range(n_times):
+        f()
+    total_time = Profiler.get("/f").total
+    print(f'total={total_time:.4f}s real_time={real_time:.4f}s')
+    average_overhead = (total_time - real_time) / n_times
+    assert average_overhead < 1e-4  # 0.1ms
+    print(f'average overhead={average_overhead * 1000:.4f}ms')
+```
+
+
+## Roadmap
 - [ ] Automatically decide column width for more columns in `report`
 - [ ] Support capture parent profiler in a multi-thread context
 - [ ] Support multi-process (currently Profilers in subprocesses are all detached)
