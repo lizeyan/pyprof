@@ -1,7 +1,7 @@
 from collections import defaultdict
 from functools import wraps
 from threading import Thread, current_thread
-from typing import overload, Callable, Any, Union, Dict, List, Tuple
+from typing import overload, Callable, Any, Union, Dict, List, Tuple, Optional
 
 from .pyprof import Profiler
 
@@ -19,11 +19,15 @@ class ProfilerProxy:
         self.min_total_percent = min_total_percent
         self.min_parent_percent = min_parent_percent
 
+    @classmethod
+    def nearest_proxy(cls) -> Optional[Tuple['ProfilerProxy', Profiler]]:
+        current_stack = cls.active_proxy[current_thread()]
+        return current_stack[-1] if current_stack else None
+
     def __enter__(self):
-        current_stack = self.active_proxy[current_thread()]
         profiler = Profiler(
             self.name,
-            current_stack[-1][1] if current_stack else None,
+            current_profiler(),
             flush=self.flush,
         )
         self.flush = False  # flush for the first tic-toc only
@@ -94,4 +98,12 @@ def profile(
     return wrapper
 
 
-__all__ = ['profile']
+def current_profiler() -> Optional[Profiler]:
+    """
+    :return: return the current profiler in the profiler stack defined by profile()
+    """
+    p = ProfilerProxy.nearest_proxy()
+    return p[1] if p else None
+
+
+__all__ = ['profile', 'current_profiler']
